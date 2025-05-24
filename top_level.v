@@ -5,9 +5,20 @@
 // {{4{a}}, {3{b}}}
 
 `define period 10
-module test;
-	reg clk, rst;
+module test(input CLOCK_50 ,[6:0] output HEX0 ,[6:0] output HEX1 ,[6:0]output HEX2,[6:0]output HEX3);
+reg clk, rst;
+clock_divider my_divider (
+    .clk_50MHz(CLOCK_50),  // اتصال به کلاک 50 مگاهرتز
+    .reset(reset),          // اتصال به سیگنال ریست
+    .clk_2Hz(clk)       // کلاک خروجی 2 هرتز
+);
 	cpu dut (clk, rst);
+	wire n[27:0]
+	bintobcd b(.number(dut.rf.cells[30]),.milion(n[27:24]) ,.hundredsthouzands(n[23:20]),.tenthouzand(n[19:16]),.thouzands(n[15:12]),.hundreds(n[11:8]), .tens(n[7:4]), ones(n[3:0]));
+	char_to_hex c1(.char(n[3:0],.seg(HEX0));
+	char_to_hex c3(.char(n[7:4],.seg(HEX1));
+	char_to_hex c2(.char(n[11:8],.seg(HEX2));
+	char_to_hex c4(.char(n[15:12],.seg(HEX3));
 	integer i;
 	always #(`period/2) clk = ~clk;
 	initial begin
@@ -15,8 +26,7 @@ module test;
 		rst = 1;
 		#1;
 		rst = 0;
-		for (i = 0; i < 32; i = i + 1)
-			$display ("r[%d]=%d", i, dut.rf.cells[i]);
+		 
 		#`period;
 		for (i = 0; i < 32; i = i + 1)
 			$display ("r[%d]=%d", i, dut.rf.cells[i]);
@@ -243,5 +253,33 @@ module controlUnit (input [31:0] inst, output reg alusrc, memRead, memToReg, reg
 			end
 		endcase
 	end
+endmodule
+
+module clock_divider (
+    input wire clk_50MHz,    // کلاک ورودی 50 مگاهرتز
+    input wire reset,        // سیگنال ریست
+    output reg clk_2Hz       // کلاک خروجی 2 هرتز
+);
+
+// برای تقسیم 50MHz به 2Hz نیاز به تقسیم بر 25,000,000 داریم (50,000,000 / 2 = 25,000,000)
+// بنابراین شمارنده باید تا 12,500,000 بشمارد (چون هر سیکل کلاک دو حالت دارد)
+reg [23:0] counter; // 24 بیت برای شمارش تا 12,500,000 کافی است (2^24 = 16,777,216)
+
+always @(posedge clk_50MHz or posedge reset) begin
+    if (reset) begin
+        counter <= 0;
+        clk_2Hz <= 0;
+    end
+    else begin
+        if (counter == 12499999) begin // 12,500,000 - 1
+            counter <= 0;
+            clk_2Hz <= ~clk_2Hz; // تغییر وضعیت کلاک خروجی
+        end
+        else begin
+            counter <= counter + 1;
+        end
+    end
+end
+
 endmodule
 
