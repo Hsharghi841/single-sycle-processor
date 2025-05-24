@@ -53,10 +53,14 @@ module cpu (input clk, rst);
 		.out (pcOut)
 	);
 
-	instructionMemory im (
-		.clock (clk),
-		.address (pcOut),
-		.q (instruction)
+	memory #(.kind(`instMemory)) im (
+		.clk (clk),
+		.rst (rst),
+		.memRead (1'b1),
+		.memWrite (1'b0),
+		.addressIn (pcOut),
+		.dataIn(32'd0),
+		.out (instruction)
 	);
 
 	registerFile rf (
@@ -79,7 +83,7 @@ module cpu (input clk, rst);
 		.zero(zero)
 	);
 
-	memory dm (
+	memory #(.kind(`dataMemory)) dm (
 		.clk(clk),
 		.rst(rst),
 		.memRead(memRead),
@@ -100,13 +104,14 @@ module register (input clk, rst, input [31:0] in, output reg [31:0] out);
 	end
 endmodule
 
-module memory (input clk, rst, memRead, memWrite, input [31:0] addressIn, dataIn, output [31:0] out);
+module memory #(parameter kind) (input clk, rst, memRead, memWrite, input [31:0] addressIn, dataIn, output [31:0] out);
 	reg [7:0] cells [1023:0];
 	always @(posedge clk, posedge rst) begin
 		if (rst) begin
-			for(i = 0; i < 1024; i = i + 1) begin
-				cells[i] <= 8'b0;
-			end
+			if (kind == `dataMemory)
+				$readmemh("data.hex", cells);
+			else
+				$readmemh("instructions.hex", cells);
 		end
 		// little endian
 		else if (memWrite) begin
